@@ -1,0 +1,22 @@
+{
+  "name": "weather-app-backend",
+  "version": "1.0.0",
+  "description": "Backend management component for weather app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "pocketbase": "^0.20.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0",
+    "nodemon": "^3.0.2"
+  }
+} 

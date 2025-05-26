@@ -1,0 +1,91 @@
+stages:
+  - lint
+  - test
+  - sonarqube
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+# Lint job for backend
+lint-backend:
+  stage: lint
+  image: node:18-alpine
+  script:
+    - cd backend
+    - npm install
+    - npm run lint
+  only:
+    changes:
+      - backend/**/*
+
+# Lint job for collector service
+lint-collector:
+  stage: lint
+  image: node:18-alpine
+  script:
+    - cd collector-service
+    - npm install
+    - npm run lint
+  only:
+    changes:
+      - collector-service/**/*
+
+# Lint job for frontend
+lint-frontend:
+  stage: lint
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run lint
+  only:
+    changes:
+      - frontend/**/*
+
+# SonarQube analysis
+sonarqube-analysis:
+  stage: sonarqube
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+  only:
+    - main
+    - merge_requests
+
+# Build Docker images
+build:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - docker build -t weather-backend -f Dockerfile.backend .
+    - docker build -t weather-collector -f Dockerfile.collector .
+    - docker build -t weather-frontend -f Dockerfile.frontend .
+  only:
+    - main
+    - tags
+
+# Deploy to production
+deploy:
+  stage: deploy
+  image: docker/compose:latest
+  script:
+    - docker-compose up -d
+  environment:
+    name: production
+  only:
+    - tags
+  when: manual 
