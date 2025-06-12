@@ -207,6 +207,153 @@ app.get('/collectors', (req, res) => {
   res.json(collectors);
 });
 
+// City Management Endpoints
+
+// Get all cities/locations
+app.get('/cities', async (req, res) => {
+  try {
+    const records = await pb.collection('locations').getFullList({
+      sort: 'name'
+    });
+    res.json(records);
+  } catch (error) {
+    console.error('Error fetching cities:', error);
+    res.status(500).json({ error: 'Failed to fetch cities' });
+  }
+});
+
+// Add a new city
+app.post('/cities', async (req, res) => {
+  try {
+    const { name, country } = req.body;
+    
+    if (!name || !country) {
+      return res.status(400).json({ error: 'City name and country are required' });
+    }
+    
+    // Normalize country input (trim and handle both codes and full names)
+    const normalizedCountry = country.trim();
+    
+    // Check if city already exists (case insensitive)
+    try {
+      const existingCity = await pb.collection('locations').getFirstListItem(
+        `name~"${name.trim()}" && country~"${normalizedCountry}"`
+      );
+      if (existingCity) {
+        return res.status(409).json({ error: 'City already exists' });
+      }
+    } catch (err) {
+      // City doesn't exist, continue with creation
+    }
+    
+    // Verify city exists via OpenWeatherMap API
+    if (openWeatherApiKey) {
+      try {
+        await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
+          params: {
+            q: `${name.trim()},${normalizedCountry}`,
+            appid: openWeatherApiKey
+          }
+        });
+      } catch (error) {
+        return res.status(400).json({ 
+          error: 'City not found in weather service. Please verify the city name and country.' 
+        });
+      }
+    }
+    
+    const record = await pb.collection('locations').create({
+      name: name.trim(),
+      country: normalizedCountry
+    });
+    
+    res.status(201).json(record);
+  } catch (error) {
+    console.error('Error adding city:', error);
+    res.status(500).json({ error: 'Failed to add city' });
+  }
+});
+
+// Update a city
+app.put('/cities/:id', async (req, res) => {
+  try {
+    const cityId = req.params.id;
+    const { name, country } = req.body;
+    
+    if (!name || !country) {
+      return res.status(400).json({ error: 'City name and country are required' });
+    }
+    
+    // Normalize country input
+    const normalizedCountry = country.trim();
+    
+    // Verify city exists via OpenWeatherMap API
+    if (openWeatherApiKey) {
+      try {
+        await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
+          params: {
+            q: `${name.trim()},${normalizedCountry}`,
+            appid: openWeatherApiKey
+          }
+        });
+      } catch (error) {
+        return res.status(400).json({ 
+          error: 'City not found in weather service. Please verify the city name and country.' 
+        });
+      }
+    }
+    
+    const record = await pb.collection('locations').update(cityId, {
+      name: name.trim(),
+      country: normalizedCountry
+    });
+    
+    res.json(record);
+  } catch (error) {
+    console.error('Error updating city:', error);
+    if (error.status === 404) {
+      res.status(404).json({ error: 'City not found' });
+    } else {
+      res.status(500).json({ error: 'Failed to update city' });
+    }
+  }
+});
+
+// Delete a city
+app.delete('/cities/:id', async (req, res) => {
+  try {
+    const cityId = req.params.id;
+    
+    // Get city info before deletion
+    const city = await pb.collection('locations').getOne(cityId);
+    
+    // Check if any collectors are currently using this city
+    const activeCollectorsForCity = Array.from(runningCollectors.values())
+      .filter(collector => collector.location === city.name);
+    
+    if (activeCollectorsForCity.length > 0) {
+      return res.status(409).json({ 
+        error: `Cannot delete city ${city.name}. ${activeCollectorsForCity.length} active collector(s) are using this location. Please stop all collectors for this city first.`,
+        activeCollectors: activeCollectorsForCity
+      });
+    }
+    
+    await pb.collection('locations').delete(cityId);
+    
+    res.json({ 
+      message: 'City deleted successfully',
+      deletedCity: city
+    });
+  } catch (error) {
+    console.error('Error deleting city:', error);
+    if (error.status === 404) {
+      res.status(404).json({ error: 'City not found' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete city' });
+    }
+  }
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Collector service running at http://localhost:${port}`);

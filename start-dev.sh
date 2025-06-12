@@ -8,7 +8,7 @@ POCKETBASE_PID=$!
 cd ..
 
 # Wait for PocketBase to start
-sleep 5
+sleep 3
 
 # Set up PocketBase collections
 echo "Setting up PocketBase collections..."

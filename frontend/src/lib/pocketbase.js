@@ -2,6 +2,7 @@ import PocketBase from 'pocketbase';
 
 const pocketbaseUrl = 'http://localhost:8090';
 const backendUrl = 'http://localhost:3003';
+const collectorServiceUrl = 'http://localhost:3001';
 export const pb = new PocketBase(pocketbaseUrl);
 
 // Function to fetch weather data from PocketBase
@@ -99,6 +100,95 @@ export async function fetchCollectors() {
     return await response.json();
   } catch (error) {
     console.error('Error fetching collectors:', error);
+    throw error;
+  }
+}
+
+// City Management Functions
+
+// Function to fetch all cities from collector service
+export async function fetchCities() {
+  try {
+    const response = await fetch(`${collectorServiceUrl}/cities`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cities: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching cities:', error);
+    throw error;
+  }
+}
+
+// Function to add a new city
+export async function addCity(name, country) {
+  try {
+    const response = await fetch(`${collectorServiceUrl}/cities`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        country: country.trim()
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to add city: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding city:', error);
+    throw error;
+  }
+}
+
+// Function to update a city
+export async function updateCity(cityId, name, country) {
+  try {
+    const response = await fetch(`${collectorServiceUrl}/cities/${cityId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        country: country.trim()
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to update city: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating city:', error);
+    throw error;
+  }
+}
+
+// Function to delete a city
+export async function deleteCity(cityId) {
+  try {
+    const response = await fetch(`${collectorServiceUrl}/cities/${cityId}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to delete city: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting city:', error);
     throw error;
   }
 } 

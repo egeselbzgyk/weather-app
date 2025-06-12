@@ -1,92 +1,201 @@
-# Weather App - Cloud-Native Microservice
+# Wetter-App - Cloud-Native Microservice
 
-A simple cloud-native microservice application for collecting and displaying current weather data.
+Eine cloud-native Microservice-Anwendung zur Erfassung und Anzeige aktueller Wetterdaten.
 
-## Architecture
+## Projektübersicht
 
-- **Frontend** (Svelte): Modern web interface for displaying current weather
-- **Backend** (Express): Management API for collector services  
-- **Collector Service** (Node.js): Microservice for fetching weather data from OpenWeatherMap
-- **Database** (PocketBase): Data storage
+Bevor mit der eigentlichen Entwicklung begonnen wird, wurden die folgenden Aspekte berücksichtigt:
 
-## Quick Start
+### Komponenten-Interaktion und Kommunikation
 
-### Development Setup
+Die Anwendung besteht aus mehreren Komponenten, die über definierte APIs miteinander kommunizieren:
 
-1. Install dependencies:
-```bash
-cd frontend && npm install
-cd ../backend && npm install  
-cd ../collector-service && npm install
+#### Client-Service Kommunikation:
+
+- **Frontend ↔ Backend**: HTTP/REST-API über Port 3001
+- **Backend ↔ PocketBase**: HTTP-Datenbankzugriff über Port 8090
+- **Backend ↔ Collector Service**: HTTP-API für Collector-Management über Port 3002
+- **Collector Service ↔ OpenWeatherMap API**: Externe HTTP-API für Wetterdaten
+
+#### Service-zu-Service Kommunikation:
+
+- Alle Services kommunizieren über RESTful HTTP-APIs
+- JSON als Datenformat für alle API-Aufrufe
+- Event-basierte Architektur für Datensammlung
+- Asynchrone Verarbeitung von Wetterdatenabfragen
+
+### Architektur
+
+#### Microservice-Architektur:
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Frontend  │────│   Backend   │────│ Collector   │
+│  (Svelte)   │    │ (Express)   │    │  Service    │
+└─────────────┘    └─────────────┘    └─────────────┘
+                            │                   │
+                    ┌─────────────┐    ┌─────────────┐
+                    │ PocketBase  │    │OpenWeatherMap│
+                    │ (Database)  │    │     API     │
+                    └─────────────┘    └─────────────┘
 ```
 
-2. Set up environment:
+#### Komponentenbeschreibung:
+
+- **Frontend (Svelte)**: Benutzeroberfläche für Wetteranzeige
+- **Backend (Express)**: Management-API für Collector-Services und Datenabfrage
+- **Collector Service (Node.js)**: Microservice für Wetterdatenerfassung
+- **PocketBase**: NoSQL-Datenbank für Datenspeicherung
+- **OpenWeatherMap API**: Externe Datenquelle für Wetterdaten
+
+### Schneller Produktionseinsatz
+
+#### CI/CD Pipeline mit GitLab
+
+Die Anwendung nutzt GitLab CI/CD (git.thm.de) für automatisierte Bereitstellung:
+
+##### Pipeline-Stufen:
+
+1. **Build**: Erstellen aller Service-Container
+2. **Test**: Ausführung von Unit- und Integrationstests
+3. **Security**: Sicherheitsscans mit SonarQube
+4. **Deploy**: Automatische Bereitstellung in Produktion
+
+##### Deployment-Strategien:
+
+- **Docker-Container**: Alle Services sind containerisiert
+- **Docker Compose**: Lokale Entwicklung und Testing
+- **Kubernetes**: Produktionsbereitstellung (skalierbar)
+- **Environment Variables**: Konfiguration über Umgebungsvariablen
+
+## Installation und Entwicklung
+
+### Voraussetzungen
+
+- Node.js (v18+)
+- OpenWeatherMap API-Schlüssel
+
+### Lokale Entwicklungsumgebung
+
+1. **Repository klonen:**
+
+```bash
+git clone [repository-url]
+cd weather-app
+```
+
+2. **Abhängigkeiten installieren:**
+
+```bash
+cd frontend ; npm install
+cd ../backend ; npm install
+cd ../collector-service ; npm install
+```
+
+3. **Umgebung konfigurieren:**
+
 ```bash
 cp .env-example .env
-# Add your OpenWeatherMap API key to .env
+# OpenWeatherMap API-Schlüssel in .env hinzufügen
 ```
 
-3. Start services:
+4. **Services starten:**
+
 ```bash
-# Terminal 1: Start PocketBase
-cd pocketbase && ./pocketbase serve
+# Terminal 1: PocketBase-Datenbank
+cd pocketbase ; ./pocketbase serve
 
-# Terminal 2: Set up database and add locations (if needed)
-cd pocketbase && node add-gaziantep.js
+# Terminal 2: Backend-Service
+cd backend ; npm run dev
 
-# Terminal 3: Start Backend
-cd backend && npm run dev
+# Terminal 3: Collector-Service
+cd collector-service ; npm run dev
 
-# Terminal 4: Start Collector Service  
-cd collector-service && npm run dev
-
-# Terminal 5: Start Frontend
-cd frontend && npm run dev
+# Terminal 4: Frontend
+cd frontend ; npm run dev
 ```
 
-### Docker Setup
+### Docker-Setup für Produktion
 
 ```bash
 cp .env-example .env
-# Add your OpenWeatherMap API key to .env
+# API-Schlüssel konfigurieren
 docker-compose up -d
 ```
 
-## API Endpoints
+## API-Spezifikation
 
-**Backend:**
-- `GET /api/collectors` - List running collectors
-- `POST /api/collectors` - Start new collector
-- `DELETE /api/collectors/:id` - Stop collector
-- `GET /api/weather/:location` - Get weather data
-- `GET /api/locations` - Get all locations
+### Backend-API (Port 3001)
 
-**Collector Service:**
-- `POST /collect` - Start data collection
-- `DELETE /collect/:id` - Stop collection
-- `GET /collectors` - List active collectors
+- `GET /api/collectors` - Aktive Collectors auflisten
+- `POST /api/collectors` - Neuen Collector starten
+- `DELETE /api/collectors/:id` - Collector stoppen
+- `GET /api/weather/:location` - Wetterdaten abrufen
+- `GET /api/locations` - Alle Standorte abrufen
 
-## Troubleshooting
+### Collector-Service-API (Port 3002)
 
-### Temperature Data Issues
-If you're getting incorrect temperature data for specific cities:
+- `POST /collect` - Datensammlung starten
+- `DELETE /collect/:id` - Sammlung stoppen
+- `GET /collectors` - Aktive Collectors auflisten
 
-1. **Check API Key**: Make sure you have a valid OpenWeatherMap API key in your `.env-local` files
-2. **Add Location Properly**: Ensure your city is added to the database with the correct country code
-   - For Turkish cities like Gaziantep, use country code 'TR'
-   - Run: `cd pocketbase && node add-gaziantep.js` to add Turkish cities
-3. **Verify API Calls**: Check the collector service logs to see the actual API responses
-4. **Location Format**: The API works best with format "City,CountryCode" (e.g., "Gaziantep,TR")
+## Technologie-Stack
 
-### Common Issues
-- **Mock Data**: If you see "Mock Data" in the source, your API key is not set properly
-- **404 Errors**: Make sure PocketBase is running and collections are created
-- **CORS Issues**: Ensure all services are running on the specified ports
+### Frontend
 
-## Technologies
+- **Framework**: Svelte/SvelteKit
+- **Styling**: CSS3, responsive Design
+- **State Management**: Svelte Stores
 
-- Frontend: Svelte, SvelteKit
-- Backend: Express.js, Node.js
-- Database: PocketBase
-- Weather API: OpenWeatherMap
-- Containers: Docker, Docker Compose 
+### Backend
+
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **API**: RESTful Design
+
+### Datenbank
+
+- **System**: PocketBase (NoSQL)
+- **Features**: Real-time Updates, Admin-Interface
+
+### DevOps
+
+- **CI/CD**: GitLab CI/CD Pipeline
+- **Code-Qualität**: SonarQube Integration
+
+### Skalierung
+
+- Horizontale Skalierung über Kubernetes
+- Load Balancing zwischen Service-Instanzen
+- Database Connection Pooling
+- Caching-Strategien für API-Aufrufe
+
+## Dokumentation und Wartung
+
+### Code-Dokumentation
+
+- Inline-Kommentare für komplexe Logik
+- API-Dokumentation mit OpenAPI/Swagger
+- README-Dateien in jedem Service-Verzeichnis
+- Architektur-Diagramme und Flowcharts
+
+### Testing
+
+- Unit Tests für alle Services
+- Integration Tests für API-Endpunkte
+- End-to-End Tests für kritische User Journeys
+- Performance Tests für Lastanalyse
+
+## GitLab CI/CD Integration
+
+Die Anwendung nutzt GitLab (git.thm.de) für:
+
+- Versionskontrolle und Code-Reviews
+- Automatisierte Build- und Test-Pipelines
+- Container Registry für Docker Images
+- Deployment-Automatisierung
+- Issue Tracking und Projektmanagement
+
+### Pipeline-Konfiguration
+
+Siehe `.gitlab-ci.yml` für detaillierte Pipeline-Konfiguration und Deployment-Strategien.
